@@ -1,12 +1,6 @@
 # Specific Documentation & Specification Files
 AGENTS.md
 DESIGN.md
-Idea.md
-Phase1.md
-Phase2.md
-Phase3.md
-Phase4.md
-Phase5.md
 
 # Environment & Secrets
 .env
