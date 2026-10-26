@@ -128,7 +128,9 @@ graph TD
   - User can manually override with `interval_miles` (10, 25, or 50 miles).
 - **Endpoint Guarantee**: Checkpoint 0 (origin) and the final checkpoint (destination) are always included.
 - **Monotonic ETAs**:
-  $$\text{ETA} = \text{departure} + (\text{cumulative duration at mile} \times \text{truck speed factor})$$
+  ```
+  ETA = departure + (cumulative_duration_at_mile * truck_speed_factor)
+  ```
   ETAs strictly increase along the route, with intermediate arrival times interpolated from routing steps and the final checkpoint matching the total trip duration.
 
 ### C. Commercial Load-Sensitive Risk Engine (Pure Module)
@@ -137,23 +139,25 @@ graph TD
   - **Rain (in/hr)**: `< 0.10` Low, `0.10–0.25` Moderate, `0.25–0.50` High, `0.50–1.00` Severe, `> 1.00` No Travel.
   - **Snow (in/hr)**: `< 0.5` Low, `0.5–1.0` Moderate, `1.0–2.0` High, `2.0–3.0` Severe, `> 3.0` No Travel.
 - **Truck Load Aerodynamic Blowover & Rollover Rules**:
-  - **Wind $\ge 55\text{ mph}$**: **No Travel** for any load weight.
-  - **Wind $45\text{--}54\text{ mph}$ + Load $> 30,000\text{ lb}$**: Raised to **No Travel** (empty/light trailer blowover hazard).
-  - **Wind $35\text{--}44\text{ mph}$ + Load $> 40,000\text{ lb}$**: Raised to **Severe** (heavy gross weight crosswind control hazard).
+  - **Wind >= 55 mph**: **No Travel** for any load weight.
+  - **Wind 45–54 mph + Load > 30,000 lb**: Raised to **No Travel** (empty/light trailer blowover hazard).
+  - **Wind 35–44 mph + Load > 40,000 lb**: Raised to **Severe** (heavy gross weight crosswind control hazard).
 - **Attribution & Transparency**: Every checkpoint tags the root driver causing its risk level (`wind`, `rain`, `snow`, or `load_rule`).
 - **Missing Data Handling**: Failed or missing forecast data is marked `UNKNOWN` and is never silently treated as Low.
 
 ### D. Lexicographic Route Recommendation Engine
-- **Segment Distance Weighting**: Intermediate checkpoints represent the segment between the midpoints of adjacent checkpoints ($\frac{m_{i+1} - m_{i-1}}{2}$). Start and destination checkpoints represent half-segments ($\frac{m_1 - m_0}{2}$ and $\frac{m_n - m_{n-1}}{2}$). The sum of segment weights exactly equals the total route distance.
+- **Segment Distance Weighting**: Intermediate checkpoints represent the segment between the midpoints of adjacent checkpoints: `(m[i+1] - m[i-1]) / 2`. Start and destination checkpoints represent half-segments: `(m[1] - m[0]) / 2` and `(m[n] - m[n-1]) / 2`. The sum of segment weights exactly equals the total route distance.
 - **Lexicographic Priority Key** (Lower is better):
-  $$\text{Key} = (\text{has\_no\_travel},\; \text{no\_travel\_miles},\; \text{severe\_miles},\; \text{high\_miles},\; \text{round}(\text{avg\_risk}, 2),\; \text{duration\_min})$$
+  ```
+  (has_no_travel, no_travel_miles, severe_miles, high_miles, round(avg_risk, 2), duration_min)
+  ```
 - **Safety Disqualification**: Any route with `no_travel_miles > 0` is flagged **NOT DRIVABLE** and excluded from recommendation.
-- **Near-Tie Tolerance**: Routes within $0.05$ average risk are treated as equal, allowing travel time (`duration_min`) to break ties safely.
+- **Near-Tie Tolerance**: Routes within 0.05 average risk are treated as equal, allowing travel time (`duration_min`) to break ties safely.
 - **All-Hazard Handling**: If all routes exceed safe thresholds, no route is recommended, and the driver is prompted to delay departure.
 
 ### E. 0–48 Hour Corridor Risk Heatmap & Forecast Slider
-- **Corridor Grid Sampling**: Generates points every ~10 miles along each route plus lateral perpendicular offsets ($\pm 10\text{--}15\text{ miles}$) capped at 2,000 points.
-- **Precomputed Timeline**: Generates 49 hourly risk scores ($0\text{--}48\text{h}$) per grid point evaluated with the truck's load weight.
+- **Corridor Grid Sampling**: Generates points every ~10 miles along each route plus lateral perpendicular offsets (±10–15 miles) capped at 2,000 points.
+- **Precomputed Timeline**: Generates 49 hourly risk scores (0–48h) per grid point evaluated with the truck's load weight.
 - **Zero-Latency Client-Side Scrubbing**: Moving the slider updates the WebGL GeoJSON source directly with zero network requests at 60 FPS. Includes auto-play/pause ticker and reset controls.
 
 ### F. Departure Window Optimizer
@@ -193,8 +197,8 @@ Consider a trip from **Chicago, IL** to **Indianapolis, IN** with a **42,000 lb*
 | Total Distance | 185.3 mi | 212.0 mi | 235.4 mi |
 | Travel Duration | 279 min | 315 min | 340 min |
 | Wind Conditions | 40 mph crosswinds at mi 80–120 | 28 mph wind gusts | 15 mph light breeze |
-| Base Wind Risk | High ($35\text{--}44\text{ mph}$) | Moderate ($25\text{--}34\text{ mph}$) | Low ($< 25\text{ mph}$) |
-| **Load Rule Applied** | **Load $> 40,000\text{ lb} \rightarrow$ Raised to SEVERE** | No rule triggered | No rule triggered |
+| Base Wind Risk | High (35–44 mph) | Moderate (25–34 mph) | Low (< 25 mph) |
+| **Load Rule Applied** | **Load > 40,000 lb → Raised to SEVERE** | No rule triggered | No rule triggered |
 | `no_travel_miles` | 0.0 mi | 0.0 mi | 0.0 mi |
 | `severe_miles` | **40.0 mi** | **0.0 mi** | **0.0 mi** |
 | `high_miles` | 0.0 mi | 0.0 mi | 0.0 mi |
@@ -205,13 +209,13 @@ Consider a trip from **Chicago, IL** to **Indianapolis, IN** with a **42,000 lb*
 ### Step-by-Step Lexicographic Decision:
 1. **Tier 1 (`has_no_travel` & `no_travel_miles`)**: All routes have 0 No Travel miles. All remain eligible.
 2. **Tier 2 (`severe_miles`)**:
-   - Route A has **40.0 severe miles** because the 40 mph crosswind was escalated to **Severe** under the commercial load rule ($> 40,000\text{ lb}$).
+   - Route A has **40.0 severe miles** because the 40 mph crosswind was escalated to **Severe** under the commercial load rule (> 40,000 lb).
    - Routes B and C both have **0.0 severe miles**. Route A is eliminated.
 3. **Tier 3 (`high_miles`)**: Both Routes B and C have 0.0 high miles. Tied.
 4. **Tier 4 (`avg_risk`)**:
    - Route C has `avg_risk = 0.45`; Route B has `avg_risk = 1.12`.
-   - Difference is $1.12 - 0.45 = 0.67 > 0.05$ (exceeds tie tolerance).
-   - If average risk difference were $\le 0.05$, Route B would win on duration; here Route C offers a significantly safer weather profile or Route B balances duration depending on threshold configuration.
+   - Difference is `1.12 - 0.45 = 0.67 > 0.05` (exceeds tie tolerance).
+   - If average risk difference were `<= 0.05`, Route B would win on duration; here Route C offers a significantly safer weather profile or Route B balances duration depending on threshold configuration.
 5. **Explanation Output**:
    > *"Route B is recommended: Eliminates 40.0 miles of severe crosswind hazard present on Route A while saving 25 minutes compared to Route C."*
 
@@ -222,20 +226,20 @@ Consider a trip from **Chicago, IL** to **Indianapolis, IN** with a **42,000 lb*
 As required by project specifications:
 
 1. **Boundary Conventions**:
-   - **Wind speed** is continuous: lower bound inclusive, upper bound exclusive (e.g., $25.0\text{ mph}$ is Moderate, $34.99\text{ mph}$ is Moderate, $35.0\text{ mph}$ is High, $55.0\text{ mph}$ is No Travel).
-   - **Rain and Snow** intensities: lower bound inclusive; No Travel thresholds are strictly greater than ($> 1.00\text{ in/hr}$ rain is No Travel; $> 3.0\text{ in/hr}$ snow is No Travel).
-   - **Load comparisons** are strict: $> 30,000\text{ lb}$ and $> 40,000\text{ lb}$.
+   - **Wind speed** is continuous: lower bound inclusive, upper bound exclusive (e.g., 25.0 mph is Moderate, 34.99 mph is Moderate, 35.0 mph is High, 55.0 mph is No Travel).
+   - **Rain and Snow** intensities: lower bound inclusive; No Travel thresholds are strictly greater than (> 1.00 in/hr rain is No Travel; > 3.0 in/hr snow is No Travel).
+   - **Load comparisons** are strict: `> 30,000 lb` and `> 40,000 lb`.
 2. **Sampling Spacing**:
-   - Adaptive intervals: $< 100\text{ mi} \rightarrow 10\text{ mi}$; $100\text{--}300\text{ mi} \rightarrow 25\text{ mi}$; $> 300\text{ mi} \rightarrow 50\text{ mi}$.
+   - Adaptive intervals: `< 100 mi: 10 mi`; `100–300 mi: 25 mi`; `> 300 mi: 50 mi`.
    - Start point (mile 0) and destination are always included. Coordinates are interpolated along the polyline and scaled to reported routing distance.
 3. **Wind Gust vs. Sustained Wind**:
-   - Sustained $10\text{m}$ wind speed is used for primary risk classification, matching standard meteorological road forecast models.
+   - Sustained 10m wind speed is used for primary risk classification, matching standard meteorological road forecast models.
 4. **Segment Distance Weighting**:
-   - Intermediate checkpoints represent the segment between midpoints of adjacent checkpoints ($\frac{m_{i+1} - m_{i-1}}{2}$). Origin and destination checkpoints represent half-segments ($\frac{m_1 - m_0}{2}$ and $\frac{m_n - m_{n-1}}{2}$). The sum of segment weights equals total route distance.
+   - Intermediate checkpoints represent the segment between midpoints of adjacent checkpoints: `(m[i+1] - m[i-1]) / 2`. Origin and destination checkpoints represent half-segments: `(m[1] - m[0]) / 2` and `(m[n] - m[n-1]) / 2`. The sum of segment weights equals total route distance.
 5. **No Travel Handling**:
    - Routes containing any No Travel checkpoint are flagged as **NOT DRIVABLE** and excluded from recommendation. If all routes are unsafe, no recommendation is made, and the driver is prompted to delay departure.
 6. **Tie Tolerance**:
-   - `AVG_RISK_TIE_TOLERANCE` is fixed at $0.05$. If average risk difference is $\le 0.05$, travel duration breaks the tie.
+   - `AVG_RISK_TIE_TOLERANCE` is fixed at 0.05. If average risk difference is `<= 0.05`, travel duration breaks the tie.
 
 ---
 
@@ -436,8 +440,8 @@ Transmits real-time vehicle telemetry and receives ahead-of-vehicle hazard analy
   - Input `Chicago, IL` to `Indianapolis, IN`.
   - Inspect the 3 alternative routes, checkpoint popups with monotonic ETAs, and the plain-English recommendation banner.
 - **2:30 – 4:00 (Load-Sensitive Blowover Risk Demonstration)**:
-  - Run analysis at $25,000\text{ lb}$ showing a $40\text{ mph}$ wind checkpoint rated High Risk.
-  - Increase load to $45,000\text{ lb}$. Show how the exact same weather checkpoint escalates to **Severe Risk** via load rules, automatically re-ranking the safest alternative route.
+  - Run analysis at 25,000 lb showing a 40 mph wind checkpoint rated High Risk.
+  - Increase load to 45,000 lb. Show how the exact same weather checkpoint escalates to **Severe Risk** via load rules, automatically re-ranking the safest alternative route.
 - **4:00 – 5:15 (Corridor Heatmap & 48-Hour Forecast Slider)**:
   - Scrub through the timeline slider client-side with zero network delay.
   - Demonstrate how weather storm fronts advance across the corridor over time.
