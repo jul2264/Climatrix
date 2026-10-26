@@ -73,6 +73,7 @@ export const MapRadarHUD: React.FC<MapRadarHUDProps> = ({
       <div className="map-radar-header">
         <div className="radar-beacon-wrapper">
           <div className="radar-ping" />
+          <div className="radar-ping-secondary" />
           <Radio size={16} color="#38bdf8" className="radar-icon" />
         </div>
 
@@ -99,12 +100,22 @@ export const MapRadarHUD: React.FC<MapRadarHUDProps> = ({
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="map-radar-progress-track">
-        <div
-          className="map-radar-progress-bar"
-          style={{ width: `${currentStage.progress}%` }}
-        />
+      {/* Enhanced Progress Tracking */}
+      <div className="map-radar-progress-section">
+        <div className="map-radar-progress-meta">
+          <span className="map-radar-step-count">
+            Stage {stageIndex + 1} of {stages.length}
+          </span>
+          <span className="map-radar-progress-percent">
+            {currentStage.progress}%
+          </span>
+        </div>
+        <div className="map-radar-progress-track">
+          <div
+            className="map-radar-progress-bar"
+            style={{ width: `${currentStage.progress}%` }}
+          />
+        </div>
       </div>
     </div>
   );

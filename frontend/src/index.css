@@ -715,14 +715,15 @@ body {
 }
 
 [data-theme="dark"] .map-radar-overlay {
-  background: rgba(10,10,10,0.5);
+  background: rgba(8, 8, 10, 0.65);
+  backdrop-filter: blur(4px);
 }
 
 .map-radar-hud {
   position: relative;
   background: var(--color-pure-white);
-  border: none;
-  box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.06) 0px 16px 48px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 20px 48px rgba(0,0,0,0.12);
   border-radius: var(--radius-md);
   padding: var(--spacing-16) 22px;
   min-width: 400px;
@@ -736,8 +737,9 @@ body {
 }
 
 [data-theme="dark"] .map-radar-hud {
-  background: #1a1a1a;
-  box-shadow: rgba(0,0,0,0.6) 0px 0px 0px 1px, rgba(0,0,0,0.5) 0px 16px 48px;
+  background: #111114;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 24px 64px rgba(0, 0, 0, 0.85);
 }
 
 .map-radar-header {
@@ -762,8 +764,27 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(41,122,58,0.25);
-  animation: radarRipple 1.8s ease-out infinite;
+  background: rgba(14, 165, 233, 0.35);
+  animation: radarRipple 1.6s ease-out infinite;
+}
+
+.radar-ping-secondary {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.3);
+  animation: radarRipple 1.6s ease-out infinite 0.8s;
+}
+
+[data-theme="dark"] .radar-ping {
+  background: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.6);
+}
+
+[data-theme="dark"] .radar-ping-secondary {
+  background: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.5);
 }
 
 .radar-icon {
@@ -812,7 +833,7 @@ body {
   font-weight: var(--font-weight-regular);
   letter-spacing: 0.071em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-muted);
@@ -821,8 +842,9 @@ body {
 }
 
 [data-theme="dark"] .map-radar-badge {
-  box-shadow: 0 0 0 1px var(--border-subtle);
-  color: var(--text-secondary);
+  background: rgba(56, 189, 248, 0.08);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.28);
+  color: #38bdf8;
 }
 
 .map-radar-stage-body {
@@ -836,16 +858,17 @@ body {
 }
 
 [data-theme="dark"] .map-radar-stage-body {
-  background: #141414;
-  box-shadow: 0 0 0 1px var(--border-subtle);
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .map-radar-stage-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   background: var(--color-paper-white);
   box-shadow: 0 0 0 1px var(--color-hairline);
@@ -853,8 +876,9 @@ body {
 }
 
 [data-theme="dark"] .map-radar-stage-icon {
-  background: #222222;
-  box-shadow: 0 0 0 1px var(--border-subtle);
+  background: #232328;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .map-radar-stage-text {
@@ -874,28 +898,91 @@ body {
   color: var(--text-muted);
 }
 
-.map-radar-progress-track {
-  width: 100%;
-  height: 2px;
-  background: var(--color-hairline);
-  border-radius: 9999px;
-  overflow: hidden;
+[data-theme="dark"] .map-radar-stage-detail {
+  color: #a1a1aa;
+}
+
+.map-radar-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 2px;
 }
 
+.map-radar-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-radar-step-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .map-radar-step-count {
+  color: #a1a1aa;
+}
+
+.map-radar-progress-percent {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .map-radar-progress-percent {
+  color: #38bdf8;
+}
+
+.map-radar-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
 [data-theme="dark"] .map-radar-progress-track {
-  background: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .map-radar-progress-bar {
   height: 100%;
-  background: var(--color-obsidian);
+  background: linear-gradient(90deg, #18181b, #0284c7);
   border-radius: 9999px;
-  transition: width 0.5s ease;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
 [data-theme="dark"] .map-radar-progress-bar {
-  background: var(--color-pure-white);
+  background: linear-gradient(90deg, #0284c7, #38bdf8, #22c55e);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
+}
+
+.map-radar-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+  animation: radarShimmerBeam 1.5s infinite linear;
+}
+
+@keyframes radarShimmerBeam {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 /* ==========================================================================
