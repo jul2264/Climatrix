@@ -172,20 +172,25 @@ def match_weather_at_eta(
     except Exception:
         return None, None, None
 
-    # Open-Meteo times are formatted as "YYYY-MM-DDTHH:00"
-    best_idx = 0
-    min_diff_seconds = float("inf")
-
-    for idx, t_str in enumerate(times):
+    start_dt = hourly_weather.get("_start_dt")
+    if start_dt is None:
         try:
-            t_dt = datetime.fromisoformat(t_str)
-            # Compare naive timestamps or localize
-            diff = abs((t_dt.replace(tzinfo=eta_dt.tzinfo) - eta_dt).total_seconds())
-            if diff < min_diff_seconds:
-                min_diff_seconds = diff
-                best_idx = idx
+            start_dt = datetime.fromisoformat(times[0].replace("Z", "+00:00"))
+            hourly_weather["_start_dt"] = start_dt
         except Exception:
-            continue
+            start_dt = None
+
+    if start_dt is not None:
+        aligned_eta = eta_dt
+        if start_dt.tzinfo is not None and aligned_eta.tzinfo is None:
+            aligned_eta = aligned_eta.replace(tzinfo=start_dt.tzinfo)
+        elif start_dt.tzinfo is None and aligned_eta.tzinfo is not None:
+            aligned_eta = aligned_eta.replace(tzinfo=None)
+
+        diff_hours = int(round((aligned_eta - start_dt).total_seconds() / 3600.0))
+        best_idx = max(0, min(len(times) - 1, diff_hours))
+    else:
+        best_idx = 0
 
     wind_list = hourly_weather.get("wind_speed_10m", [])
     rain_list = hourly_weather.get("rain", [])

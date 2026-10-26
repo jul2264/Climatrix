@@ -215,8 +215,8 @@ export const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading }) => {
           value={intervalMiles}
           onChange={(e) => setIntervalMiles(e.target.value)}
         >
-          <option value="auto">Adaptive</option>
-          <option value="10">Every 10 miles (High Density)</option>
+          <option value="auto">Adaptive (Recommended)</option>
+          <option value="10">Every 10 miles (High Density - Short Haul)</option>
           <option value="25">Every 25 miles (Standard)</option>
           <option value="50">Every 50 miles (Long Haul)</option>
         </select>

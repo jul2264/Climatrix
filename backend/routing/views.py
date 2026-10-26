@@ -26,6 +26,16 @@ def get_corridor_cache_key(origin: str, destination: str) -> str:
     return f"corridor_routes_{safe_orig}_{safe_dest}"
 
 
+class HealthCheckView(APIView):
+    """
+    Lightweight keep-alive health check for Render container pinging and uptime monitors.
+    Returns instant 200 OK without database or external network overhead.
+    """
+
+    def get(self, request: Request) -> Response:
+        return Response({"status": "healthy", "service": "climatrix-backend"})
+
+
 class AnalyzeTripView(APIView):
     """
     POST /api/analyze

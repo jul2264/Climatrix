@@ -25,27 +25,34 @@ def match_forecast_at_datetime(
 ) -> tuple[float | None, float | None, float | None]:
     """
     Given an hourly forecast dictionary and a target datetime,
-    find the forecast hour nearest to the target.
+    find the forecast hour nearest to the target in O(1) constant time.
     Returns (wind_mph, rain_in_hr, snow_in_hr).
     """
     times = hourly_weather.get("times", [])
     if not times:
         return None, None, None
 
-    best_idx = 0
-    min_diff_sec = float("inf")
-
-    for idx, t_str in enumerate(times):
+    # Cached parsed start datetime on the dictionary for O(1) arithmetic
+    start_dt = hourly_weather.get("_start_dt")
+    if start_dt is None:
         try:
-            t_dt = datetime.fromisoformat(t_str)
-            if target_dt.tzinfo is not None and t_dt.tzinfo is None:
-                t_dt = t_dt.replace(tzinfo=target_dt.tzinfo)
-            diff = abs((t_dt - target_dt).total_seconds())
-            if diff < min_diff_sec:
-                min_diff_sec = diff
-                best_idx = idx
+            start_dt = datetime.fromisoformat(times[0].replace("Z", "+00:00"))
+            hourly_weather["_start_dt"] = start_dt
         except Exception:
-            continue
+            start_dt = None
+
+    if start_dt is not None:
+        # Align tzinfo if needed
+        aligned_target = target_dt
+        if start_dt.tzinfo is not None and aligned_target.tzinfo is None:
+            aligned_target = aligned_target.replace(tzinfo=start_dt.tzinfo)
+        elif start_dt.tzinfo is None and aligned_target.tzinfo is not None:
+            aligned_target = aligned_target.replace(tzinfo=None)
+
+        diff_hours = int(round((aligned_target - start_dt).total_seconds() / 3600.0))
+        best_idx = max(0, min(len(times) - 1, diff_hours))
+    else:
+        best_idx = 0
 
     wind_list = hourly_weather.get("wind_speed_10m", [])
     rain_list = hourly_weather.get("rain", [])

@@ -45,23 +45,34 @@ def determine_sampling_interval(
         return INTERVAL_TIER_LONG
 
 
+MAX_CHECKPOINTS_PER_ROUTE = 65
+
+
 def generate_checkpoint_targets(
     route_distance_miles: float,
     interval_miles: int,
+    max_checkpoints: int = MAX_CHECKPOINTS_PER_ROUTE,
 ) -> list[float]:
     """
     Generate target mile values along the route, always starting at 0.0
     and ending exactly at route_distance_miles.
+    Enforces a maximum checkpoint safety cap to prevent API payload explosion
+    on ultra-long transcontinental trips.
     """
     if route_distance_miles <= 0.0:
         return [0.0]
 
+    step = float(interval_miles)
+    estimated_count = int(route_distance_miles / max(1.0, step))
+    if estimated_count > max_checkpoints:
+        step = max(step, float(int(route_distance_miles / (max_checkpoints - 1))))
+
     targets: list[float] = [0.0]
-    current = float(interval_miles)
-    # Use small epsilon (1e-6) to avoid duplicate points near the end
+    current = step
+    # Use small epsilon (1e-4) to avoid duplicate points near the end
     while current < route_distance_miles - 1e-4:
         targets.append(round(current, 2))
-        current += interval_miles
+        current += step
 
     if targets[-1] < route_distance_miles:
         targets.append(round(route_distance_miles, 2))
