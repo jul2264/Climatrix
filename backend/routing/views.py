@@ -130,7 +130,7 @@ class HeatmapView(APIView):
         if origin and dest:
             safe_orig = re.sub(r"[^a-zA-Z0-9_]", "_", origin.lower())
             safe_dest = re.sub(r"[^a-zA-Z0-9_]", "_", dest.lower())
-            heatmap_cache_key = f"heatmap_geojson_{safe_orig}_{safe_dest}_{int(load_lb)}"
+            heatmap_cache_key = f"heatmap_geojson_v3_{safe_orig}_{safe_dest}_{int(load_lb)}"
             cached_geojson = cache.get(heatmap_cache_key)
             if isinstance(cached_geojson, dict) and "features" in cached_geojson:
                 return Response(cached_geojson, status=status.HTTP_200_OK)
@@ -183,7 +183,7 @@ class HeatmapView(APIView):
         if origin and dest:
             safe_orig = re.sub(r"[^a-zA-Z0-9_]", "_", origin.lower())
             safe_dest = re.sub(r"[^a-zA-Z0-9_]", "_", dest.lower())
-            heatmap_cache_key = f"heatmap_geojson_{safe_orig}_{safe_dest}_{int(load_lb)}"
+            heatmap_cache_key = f"heatmap_geojson_v3_{safe_orig}_{safe_dest}_{int(load_lb)}"
             cache.set(heatmap_cache_key, geojson, timeout=1800)
 
         return Response(geojson, status=status.HTTP_200_OK)

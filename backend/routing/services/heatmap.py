@@ -50,6 +50,20 @@ def generate_corridor_grid(
     """
     raw_points: list[tuple[float, float]] = []
 
+    # Adaptive corridor step based on route length
+    approx_dist = 0.0
+    for coords in routes_coords:
+        if len(coords) >= 2:
+            d = haversine_miles(coords[0][0], coords[0][1], coords[-1][0], coords[-1][1]) * 1.3
+            if d > approx_dist:
+                approx_dist = d
+
+    effective_step = step_miles
+    if approx_dist > 1000.0:
+        effective_step = max(step_miles, 26.0)
+    elif approx_dist > 400.0:
+        effective_step = max(step_miles, 18.0)
+
     for coords in routes_coords:
         if not coords:
             continue
@@ -75,8 +89,8 @@ def generate_corridor_grid(
             bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
 
             accumulated_dist += seg_dist
-            while accumulated_dist - last_sampled >= step_miles:
-                last_sampled += step_miles
+            while accumulated_dist - last_sampled >= effective_step:
+                last_sampled += effective_step
                 fraction = 1.0 - ((accumulated_dist - last_sampled) / max(seg_dist, 1e-9))
                 interp_lat = lat1 + fraction * (lat2 - lat1)
                 interp_lon = lon1 + fraction * (lon2 - lon1)
@@ -129,7 +143,7 @@ def build_heatmap_geojson(
         )
         risk_by_hour: list[int] = []
 
-        if isinstance(w_item, dict) and "wind_speed_10m" in w_item:
+        if isinstance(w_item, dict) and "wind_speed_10m" in w_item and w_item["wind_speed_10m"]:
             # High-performance fast path: Direct indexed lookup from batch weather arrays
             winds = w_item.get("wind_speed_10m", [])
             rains = w_item.get("rain", [])
@@ -140,7 +154,7 @@ def build_heatmap_geojson(
                 s_val = float(snows[h]) if h < len(snows) and snows[h] is not None else None
                 lvl, _ = classify_checkpoint_risk(w_val, r_val, s_val, load_lb)
                 risk_by_hour.append(int(lvl))
-        elif isinstance(w_item, list):
+        elif isinstance(w_item, list) and w_item:
             # Fallback for list of hourly dicts
             for h in range(49):
                 if h < len(w_item):
