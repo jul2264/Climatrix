@@ -110,6 +110,8 @@ const HEATMAP_SOURCE_ID   = 'corridor-heatmap-source';
 const HEATMAP_LAYER_ID    = 'corridor-heatmap-layer';
 
 /** Build a single merged GeoJSON FeatureCollection for all routes.
+ *  Features are sorted so that unselected routes are rendered first,
+ *  and the active selected route is rendered last (topmost).
  *  Properties drive GPU paint expressions — no per-frame JS needed. */
 function buildRoutesGeoJSON(
   routes: RouteAnalysis[],
@@ -117,18 +119,39 @@ function buildRoutesGeoJSON(
   recommendedRouteId: string | null,
   isAnalyzing: boolean
 ): GeoJSON.FeatureCollection {
+  const activeSelectedId = selectedRouteId || recommendedRouteId || (routes.length > 0 ? routes[0].id : null);
+
+  // Sort routes so that unselected routes are drawn first, and the active selected route is drawn on top
+  const sortedRoutes = [...routes].sort((a, b) => {
+    const aIsSelected = a.id === activeSelectedId ? 1 : 0;
+    const bIsSelected = b.id === activeSelectedId ? 1 : 0;
+    if (aIsSelected !== bIsSelected) {
+      return aIsSelected - bIsSelected; // 0 first (unselected), 1 last (selected)
+    }
+    const aIsRec = a.id === recommendedRouteId ? 1 : 0;
+    const bIsRec = b.id === recommendedRouteId ? 1 : 0;
+    return aIsRec - bIsRec; // recommended above standard unselected
+  });
+
   return {
     type: 'FeatureCollection',
-    features: routes.map((r) => ({
-      type: 'Feature' as const,
-      geometry: r.geometry,
-      properties: {
-        id: r.id,
-        selected:    r.id === selectedRouteId    ? 1 : 0,
-        recommended: r.id === recommendedRouteId ? 1 : 0,
-        analyzing:   isAnalyzing                 ? 1 : 0,
-      },
-    })),
+    features: sortedRoutes.map((r) => {
+      const isSelected = r.id === activeSelectedId;
+      const isRecommended = r.id === recommendedRouteId;
+      const sortKey = isSelected ? 10 : isRecommended ? 5 : 1;
+
+      return {
+        type: 'Feature' as const,
+        geometry: r.geometry,
+        properties: {
+          id: r.id,
+          selected: isSelected ? 1 : 0,
+          recommended: isRecommended ? 1 : 0,
+          analyzing: isAnalyzing ? 1 : 0,
+          sort_key: sortKey,
+        },
+      };
+    }),
   };
 }
 
@@ -156,12 +179,12 @@ function buildHeatmapGeoJSON(
 // GPU paint expressions — evaluated by WebGL, not JS per frame ---------------
 
 const CASING_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
-  'case', ['==', ['get', 'selected'], 1], 10, 7,
+  'case', ['==', ['get', 'selected'], 1], 11, 7,
 ];
 const CASING_OPACITY_EXPR: maplibregl.ExpressionSpecification = [
   'case',
   ['==', ['get', 'analyzing'], 1], 0.15,
-  ['==', ['get', 'selected'], 1], 0.85,
+  ['==', ['get', 'selected'], 1], 0.90,
   0.45,
 ];
 const LINE_COLOR_EXPR: maplibregl.ExpressionSpecification = [
@@ -173,9 +196,9 @@ const LINE_COLOR_EXPR: maplibregl.ExpressionSpecification = [
 ];
 const LINE_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
   'case',
-  ['==', ['get', 'selected'], 1],    6.5,
+  ['==', ['get', 'selected'], 1],    7.5,
   ['==', ['get', 'recommended'], 1], 5.0,
-  4.5,
+  4.0,
 ];
 const LINE_OPACITY_EXPR: maplibregl.ExpressionSpecification = [
   'case',
@@ -283,6 +306,15 @@ const MapViewInner: React.FC<MapViewProps> = ({
     const existingSrc = map.getSource(ROUTES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (existingSrc) {
       existingSrc.setData(geoJSON);
+      if (map.getLayer(ROUTES_LINE_LAYER)) {
+        try {
+          map.setLayoutProperty(ROUTES_LINE_LAYER, 'line-sort-key', ['get', 'sort_key']);
+          map.setLayoutProperty(ROUTES_CASING_LAYER, 'line-sort-key', ['get', 'sort_key']);
+          map.setLayoutProperty(ROUTES_HIT_LAYER, 'line-sort-key', ['get', 'sort_key']);
+        } catch {
+          // ignore if already set
+        }
+      }
     } else {
       if (!routes.length) return;
       map.addSource(ROUTES_SOURCE_ID, { type: 'geojson', data: geoJSON });
@@ -291,7 +323,11 @@ const MapViewInner: React.FC<MapViewProps> = ({
         id: ROUTES_CASING_LAYER,
         type: 'line',
         source: ROUTES_SOURCE_ID,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+          'line-sort-key': ['get', 'sort_key'],
+        },
         paint: { 'line-color': '#020617', 'line-width': CASING_WIDTH_EXPR, 'line-opacity': CASING_OPACITY_EXPR },
       });
 
@@ -299,7 +335,11 @@ const MapViewInner: React.FC<MapViewProps> = ({
         id: ROUTES_LINE_LAYER,
         type: 'line',
         source: ROUTES_SOURCE_ID,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+          'line-sort-key': ['get', 'sort_key'],
+        },
         paint: { 'line-color': LINE_COLOR_EXPR, 'line-width': LINE_WIDTH_EXPR, 'line-opacity': LINE_OPACITY_EXPR },
       });
 
@@ -307,7 +347,11 @@ const MapViewInner: React.FC<MapViewProps> = ({
         id: ROUTES_HIT_LAYER,
         type: 'line',
         source: ROUTES_SOURCE_ID,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+          'line-sort-key': ['get', 'sort_key'],
+        },
         paint: { 'line-color': '#ffffff', 'line-width': 26, 'line-opacity': 0.0001 },
       });
 
@@ -325,6 +369,7 @@ const MapViewInner: React.FC<MapViewProps> = ({
     routeBadgesRef.current.forEach((b) => b.remove());
     routeBadgesRef.current = [];
     if (!isAnalyzing && routes.length > 0) {
+      const activeSelectedId = selectedRouteId || recommendedRouteId || routes[0].id;
       const fastest  = Math.min(...routes.map((r) => r.duration_min));
       const fractions = [0.46, 0.36, 0.58];
       routes.forEach((r, idx) => {
@@ -333,7 +378,7 @@ const MapViewInner: React.FC<MapViewProps> = ({
         const fi = Math.min(coords.length - 1, Math.max(0, Math.floor(coords.length * fractions[idx % 3])));
         const anchor      = coords[fi];
         const deltaMin    = Math.round(r.duration_min - fastest);
-        const isSel       = r.id === selectedRouteId;
+        const isSel       = r.id === activeSelectedId;
         const isRec       = r.id === recommendedRouteId;
         const statusText  = isSel
           ? (isRec ? '★ Recommended' : `${r.id} (Active)`)
@@ -379,8 +424,18 @@ const MapViewInner: React.FC<MapViewProps> = ({
     markersRef.current = [];
     if (isAnalyzing || !routes.length) return;
 
-    routes.forEach((r) => {
-      const isSel = r.id === selectedRouteId;
+    const activeSelectedId = selectedRouteId || recommendedRouteId || routes[0].id;
+
+    // Sort routes so unselected routes have their checkpoint markers placed first,
+    // and the selected route has its checkpoint markers placed last (on top in DOM)
+    const sortedForMarkers = [...routes].sort((a, b) => {
+      const aSel = a.id === activeSelectedId ? 1 : 0;
+      const bSel = b.id === activeSelectedId ? 1 : 0;
+      return aSel - bSel;
+    });
+
+    sortedForMarkers.forEach((r) => {
+      const isSel = r.id === activeSelectedId;
       if (!r.checkpoints) return;
       r.checkpoints.forEach((cp: Checkpoint) => {
         const style = getRiskStyle(cp.level);
@@ -388,8 +443,8 @@ const MapViewInner: React.FC<MapViewProps> = ({
         // Predefined class names avoid inline style recalc; GPU handles color via attribute
         el.className = `checkpoint-marker${isSel ? ' active' : ''} risk-dot-${cp.level.toLowerCase().replace('_', '-')}`;
         el.style.cssText = isSel
-          ? `width:14px;height:14px;border:2px solid #fff;box-shadow:0 0 10px ${style.color};opacity:1;z-index:8;border-radius:50%;background:${style.color};cursor:pointer`
-          : `width:9px;height:9px;border:1px solid rgba(255,255,255,0.7);box-shadow:0 0 4px ${style.color};opacity:0.75;z-index:5;border-radius:50%;background:${style.color};cursor:pointer`;
+          ? `width:14px;height:14px;border:2px solid #fff;box-shadow:0 0 10px ${style.color};opacity:1;border-radius:50%;background:${style.color};cursor:pointer`
+          : `width:9px;height:9px;border:1px solid rgba(255,255,255,0.7);box-shadow:0 0 4px ${style.color};opacity:0.75;border-radius:50%;background:${style.color};cursor:pointer`;
 
         let driverText = '';
         if      (cp.driver === 'load_rule') driverText = '⚠️ Load rule elevated risk due to wind speed and truck weight';
@@ -419,12 +474,12 @@ const MapViewInner: React.FC<MapViewProps> = ({
         `);
 
         el.addEventListener('click', () => { if (!isSel) onSelectRoute(r.id); });
-        markersRef.current.push(
-          new maplibregl.Marker({ element: el }).setLngLat([cp.lon, cp.lat]).setPopup(popup).addTo(map)
-        );
+        const marker = new maplibregl.Marker({ element: el }).setLngLat([cp.lon, cp.lat]).setPopup(popup).addTo(map);
+        marker.getElement().style.zIndex = isSel ? '25' : '10';
+        markersRef.current.push(marker);
       });
     });
-  }, [routes, selectedRouteId, isMapLoaded, isAnalyzing, onSelectRoute]);
+  }, [routes, selectedRouteId, recommendedRouteId, isMapLoaded, isAnalyzing, onSelectRoute]);
 
   // 5. Heatmap — create once, update via setData(); GPU expression handles color
   useEffect(() => {
@@ -477,7 +532,8 @@ const MapViewInner: React.FC<MapViewProps> = ({
       return;
     }
 
-    const activeRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+    const activeSelectedId = selectedRouteId || recommendedRouteId || routes[0].id;
+    const activeRoute = routes.find((r) => r.id === activeSelectedId) || routes[0];
     const pos = calculateTruckPosition(activeRoute, departureTime, forecastHour);
 
     if (!pos) {
@@ -529,7 +585,7 @@ const MapViewInner: React.FC<MapViewProps> = ({
     pulse.style.background = style.color;
     core.style.boxShadow = `0 0 16px ${style.color}, 0 4px 14px rgba(0,0,0,0.6)`;
     container.title = `Truck: ${activeRoute.id} · ${pos.statusLabel} · ${pos.timestamp}`;
-  }, [routes, selectedRouteId, departureTime, forecastHour, isMapLoaded, isAnalyzing]);
+  }, [routes, selectedRouteId, recommendedRouteId, departureTime, forecastHour, isMapLoaded, isAnalyzing]);
 
   // Render ------------------------------------------------------------------
   return (
