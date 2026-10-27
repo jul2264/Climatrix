@@ -24,7 +24,8 @@ CHUNK_SIZE = 100
 
 # Reusable HTTP session with Keep-Alive connection pooling across worker threads
 _session = requests.Session()
-_retries = Retry(total=2, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504])
+_session.headers.update({"User-Agent": "ClimatrixTruckSafety/1.0 (truck-route-weather-safety)"})
+_retries = Retry(total=2, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
 _adapter = HTTPAdapter(pool_connections=12, pool_maxsize=24, max_retries=_retries)
 _session.mount("https://", _adapter)
 _session.mount("http://", _adapter)
@@ -187,7 +188,7 @@ def match_weather_at_eta(
         elif start_dt.tzinfo is None and aligned_eta.tzinfo is not None:
             aligned_eta = aligned_eta.replace(tzinfo=None)
 
-        diff_hours = int(round((aligned_eta - start_dt).total_seconds() / 3600.0))
+        diff_hours = round((aligned_eta - start_dt).total_seconds() / 3600.0)
         best_idx = max(0, min(len(times) - 1, diff_hours))
     else:
         best_idx = 0

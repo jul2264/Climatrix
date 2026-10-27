@@ -272,6 +272,7 @@ const TruckRouteSafetyDashboard: React.FC = () => {
             onSelectRoute={handleSelectRoute}
             heatmapData={isAnalyzing ? null : heatmapData}
             forecastHour={forecastHour}
+            departureTime={activeTripParams?.departure}
             isAnalyzing={isAnalyzing}
             activeOrigin={activeTripParams?.origin}
             activeDestination={activeTripParams?.destination}

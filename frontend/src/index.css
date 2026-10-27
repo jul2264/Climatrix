@@ -1795,3 +1795,55 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ==========================================================================
+   Dynamic Truck Position Indicator Beacon & HUD
+   ========================================================================== */
+@keyframes truckPulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.7);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.truck-position-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 40 !important;
+}
+
+.truck-pulse-ring {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: truckPulse 2.2s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.truck-beacon-core {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #090d16;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+

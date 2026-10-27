@@ -153,9 +153,9 @@ def build_heatmap_geojson(
                     )
                     risk_by_hour.append(int(lvl))
                 else:
-                    risk_by_hour.append(int(RiskLevel.LOW))
+                    risk_by_hour.append(int(RiskLevel.UNKNOWN))
         else:
-            risk_by_hour = [int(RiskLevel.LOW)] * 49
+            risk_by_hour = [int(RiskLevel.UNKNOWN)] * 49
 
         features.append(
             {
@@ -166,7 +166,7 @@ def build_heatmap_geojson(
                 },
                 "properties": {
                     "risk_by_hour": risk_by_hour,
-                    "current_risk": risk_by_hour[0] if risk_by_hour else 0,
+                    "current_risk": risk_by_hour[0] if risk_by_hour else int(RiskLevel.UNKNOWN),
                 },
             }
         )

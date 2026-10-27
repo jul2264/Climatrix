@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Checkpoint, HeatmapFeatureCollection, RouteAnalysis } from '../types';
 import { formatDuration, formatTime } from '../utils/formatters';
 import { getRiskStyle } from '../utils/palette';
+import { calculateTruckPosition } from '../utils/truckPosition';
 import { Award, ShieldAlert } from 'lucide-react';
 import { MapRadarHUD } from './MapRadarHUD';
 
@@ -21,6 +22,7 @@ interface MapViewProps {
   onSelectRoute: (routeId: string) => void;
   heatmapData?: HeatmapFeatureCollection | null;
   forecastHour: number;
+  departureTime?: string;
   isAnalyzing?: boolean;
   activeOrigin?: string;
   activeDestination?: string;
@@ -144,7 +146,7 @@ function buildHeatmapGeoJSON(
         ...feat,
         properties: {
           ...feat.properties,
-          current_risk: forecastHour < arr.length ? arr[forecastHour] : 0,
+          current_risk: forecastHour < arr.length ? arr[forecastHour] : -1,
         },
       };
     }),
@@ -182,15 +184,16 @@ const LINE_OPACITY_EXPR: maplibregl.ExpressionSpecification = [
   ['==', ['get', 'recommended'], 1], 0.85,
   0.75,
 ];
-// Heatmap color: GPU match expression — 0=Low, 1=Moderate, 2=High, 3=Severe, 4=NoTravel
+// Heatmap color: GPU match expression — -1=Unknown/Missing, 0=Low, 1=Moderate, 2=High, 3=Severe, 4=NoTravel
 const HEATMAP_COLOR_EXPR: maplibregl.ExpressionSpecification = [
   'match', ['get', 'current_risk'],
-  0, 'rgba(16,185,129,0.45)',
-  1, 'rgba(59,130,246,0.55)',
-  2, 'rgba(245,158,11,0.65)',
-  3, 'rgba(236,72,153,0.80)',
-  4, 'rgba(239,68,68,0.85)',
-  'rgba(148,163,184,0.30)',
+  -1, 'rgba(148,163,184,0.35)',
+  0,  'rgba(16,185,129,0.45)',
+  1,  'rgba(59,130,246,0.55)',
+  2,  'rgba(245,158,11,0.65)',
+  3,  'rgba(236,72,153,0.80)',
+  4,  'rgba(239,68,68,0.85)',
+  'rgba(148,163,184,0.35)',
 ];
 
 // ----------------------------------------------------------------------------
@@ -202,6 +205,7 @@ const MapViewInner: React.FC<MapViewProps> = ({
   onSelectRoute,
   heatmapData,
   forecastHour,
+  departureTime,
   isAnalyzing = false,
   activeOrigin,
   activeDestination,
@@ -213,6 +217,12 @@ const MapViewInner: React.FC<MapViewProps> = ({
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const markersRef     = useRef<Marker[]>([]);
   const routeBadgesRef = useRef<Marker[]>([]);
+  const truckMarkerRef = useRef<Marker | null>(null);
+  const truckElRef     = useRef<{
+    container: HTMLDivElement;
+    pulse: HTMLDivElement;
+    core: HTMLDivElement;
+  } | null>(null);
   const prevRouteKeyRef = useRef<string>('');
 
   // 1. Initialize map --------------------------------------------------------
@@ -239,6 +249,11 @@ const MapViewInner: React.FC<MapViewProps> = ({
 
     return () => {
       ro.disconnect();
+      if (truckMarkerRef.current) {
+        truckMarkerRef.current.remove();
+        truckMarkerRef.current = null;
+        truckElRef.current = null;
+      }
       map.remove();
       mapInstance.current = null;
     };
@@ -448,6 +463,74 @@ const MapViewInner: React.FC<MapViewProps> = ({
     }
   }, [heatmapData, forecastHour, isMapLoaded]);
 
+  // 6. Dynamic Truck Position Marker (Trip Rehearsal) ------------------------
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !isMapLoaded) return;
+
+    if (isAnalyzing || !routes.length) {
+      if (truckMarkerRef.current) {
+        truckMarkerRef.current.remove();
+        truckMarkerRef.current = null;
+        truckElRef.current = null;
+      }
+      return;
+    }
+
+    const activeRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+    const pos = calculateTruckPosition(activeRoute, departureTime, forecastHour);
+
+    if (!pos) {
+      if (truckMarkerRef.current) {
+        truckMarkerRef.current.remove();
+        truckMarkerRef.current = null;
+        truckElRef.current = null;
+      }
+      return;
+    }
+
+    const style = getRiskStyle(pos.currentRisk);
+
+    // Create marker DOM structure once, then reuse for zero-allocation scrubbing
+    if (!truckMarkerRef.current || !truckElRef.current) {
+      const container = document.createElement('div');
+      container.className = 'truck-position-marker';
+
+      const pulse = document.createElement('div');
+      pulse.className = 'truck-pulse-ring';
+
+      const core = document.createElement('div');
+      core.className = 'truck-beacon-core';
+      core.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+          <path d="M15 18H9"/>
+          <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+          <circle cx="17" cy="18" r="2"/>
+          <circle cx="7" cy="18" r="2"/>
+        </svg>
+      `;
+
+      container.appendChild(pulse);
+      container.appendChild(core);
+
+      const marker = new maplibregl.Marker({ element: container, anchor: 'center' })
+        .setLngLat([pos.lon, pos.lat])
+        .addTo(map);
+
+      truckMarkerRef.current = marker;
+      truckElRef.current = { container, pulse, core };
+    }
+
+    // Direct GPU compositor transform update
+    truckMarkerRef.current.setLngLat([pos.lon, pos.lat]);
+
+    const { container, pulse, core } = truckElRef.current;
+    pulse.style.background = style.color;
+    core.style.boxShadow = `0 0 16px ${style.color}, 0 4px 14px rgba(0,0,0,0.6)`;
+    container.title = `Truck: ${activeRoute.id} · ${pos.statusLabel} · ${pos.timestamp}`;
+  }, [routes, selectedRouteId, departureTime, forecastHour, isMapLoaded, isAnalyzing]);
+
   // Render ------------------------------------------------------------------
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -574,6 +657,7 @@ export const MapView = React.memo(MapViewInner, (prev, next) => {
     prev.selectedRouteId    === next.selectedRouteId    &&
     prev.recommendedRouteId === next.recommendedRouteId &&
     prev.forecastHour       === next.forecastHour       &&
+    prev.departureTime      === next.departureTime      &&
     prev.heatmapData        === next.heatmapData        &&
     prev.isAnalyzing        === next.isAnalyzing        &&
     prev.theme              === next.theme              &&

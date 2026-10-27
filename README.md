@@ -56,6 +56,9 @@ graph TD
 │  ├─ manage.py
 │  ├─ pytest.ini
 │  ├─ requirements.txt
+│  ├─ scripts/
+│  │  ├─ test_random_routes.py# CLI randomized live US route smoke test runner
+│  │  └─ trial_run_edge_cases.py
 │  ├─ config/                 # Django settings, URLs, WSGI/ASGI
 │  └─ routing/
 │     ├─ clients/             # routing.py, geocode.py, weather.py (thin API wrappers)
@@ -81,6 +84,8 @@ graph TD
 │        ├─ test_edge_cases.py# Comprehensive boundary, missing data, and load tests
 │        ├─ test_eta.py       # Monotonicity and duration verification
 │        ├─ test_optimizer.py # Departure window optimizer tests
+│        ├─ test_random_synthetic.py # Pure synthetic randomized route invariant tests
+│        ├─ test_random_live.py      # Opt-in live randomized US route tests (@pytest.mark.live)
 │        ├─ test_recommend.py # Lexicographic ranking and tie tolerance tests
 │        ├─ test_risk.py      # Strict boundary and truck load blowover tests
 │        ├─ test_sampler.py   # Spacing, count, and endpoint inclusion tests

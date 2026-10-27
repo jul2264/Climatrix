@@ -48,7 +48,7 @@ class TestRiskRulesBoundaries:
             (99.9, RiskLevel.NO_TRAVEL),
         ],
     )
-    def test_wind_boundaries(self, wind_mph: float, expected: RiskLevel):
+    def test_wind_boundaries(self, wind_mph: float, expected: RiskLevel) -> None:
         assert classify_wind_risk(wind_mph) == expected
 
     @pytest.mark.parametrize(
@@ -66,7 +66,7 @@ class TestRiskRulesBoundaries:
             (1.50, RiskLevel.NO_TRAVEL),
         ],
     )
-    def test_rain_boundaries(self, rain_in_hr: float, expected: RiskLevel):
+    def test_rain_boundaries(self, rain_in_hr: float, expected: RiskLevel) -> None:
         assert classify_rain_risk(rain_in_hr) == expected
 
     @pytest.mark.parametrize(
@@ -84,7 +84,7 @@ class TestRiskRulesBoundaries:
             (5.00, RiskLevel.NO_TRAVEL),
         ],
     )
-    def test_snow_boundaries(self, snow_in_hr: float, expected: RiskLevel):
+    def test_snow_boundaries(self, snow_in_hr: float, expected: RiskLevel) -> None:
         assert classify_snow_risk(snow_in_hr) == expected
 
 
@@ -100,7 +100,7 @@ class TestLoadRulesEdgeCases:
     - Wind 35-44 mph and load > 40,000 lb: Severe (raise to at least Severe)
     """
 
-    def test_wind_55_with_extreme_loads(self):
+    def test_wind_55_with_extreme_loads(self) -> None:
         # 1 lb load still triggers No Travel
         lvl, drv = classify_checkpoint_risk(55.0, 0.0, 0.0, load_lb=1.0)
         assert lvl == RiskLevel.NO_TRAVEL
@@ -111,7 +111,7 @@ class TestLoadRulesEdgeCases:
         assert lvl == RiskLevel.NO_TRAVEL
         assert drv == "wind"
 
-    def test_wind_45_to_54_strict_30k_boundary(self):
+    def test_wind_45_to_54_strict_30k_boundary(self) -> None:
         wind = 48.0  # within 45-54 mph
 
         # Exactly 30,000.0 lb: strict > 30000 -> NOT elevated to No Travel (stays Severe from wind)
@@ -129,7 +129,7 @@ class TestLoadRulesEdgeCases:
         assert lvl_over == RiskLevel.NO_TRAVEL
         assert drv_over == "load_rule"
 
-    def test_wind_35_to_44_strict_40k_boundary(self):
+    def test_wind_35_to_44_strict_40k_boundary(self) -> None:
         wind = 40.0  # within 35-44 mph
 
         # Exactly 40,000.0 lb: strict > 40000 -> NOT elevated to Severe (stays High from wind)
@@ -147,7 +147,7 @@ class TestLoadRulesEdgeCases:
         assert lvl_over == RiskLevel.SEVERE
         assert drv_over == "load_rule"
 
-    def test_load_rule_when_precipitation_is_already_severe(self):
+    def test_load_rule_when_precipitation_is_already_severe(self) -> None:
         # Heavy rain (0.8 in/hr) already makes base SEVERE
         # Wind is 40 mph, load is 45,000 lb (rule says raise to at least Severe)
         # Because base is already SEVERE, rain remains the driver
@@ -155,7 +155,7 @@ class TestLoadRulesEdgeCases:
         assert lvl == RiskLevel.SEVERE
         assert drv == "rain"
 
-    def test_load_rule_when_precipitation_is_already_no_travel(self):
+    def test_load_rule_when_precipitation_is_already_no_travel(self) -> None:
         # Extreme rain (1.5 in/hr) -> NO_TRAVEL
         # Wind 48 mph, load 35,000 lb -> load rule also suggests NO_TRAVEL
         # Base driver is rain
@@ -174,22 +174,31 @@ class TestMissingWeatherDataEdgeCases:
     If some variables are present, the present variables dictate risk.
     """
 
-    def test_all_weather_missing(self):
+    def test_all_weather_missing(self) -> None:
         lvl, drv = classify_checkpoint_risk(None, None, None, load_lb=42000.0)
         assert lvl == RiskLevel.UNKNOWN
         assert drv is None
 
-    def test_wind_missing_but_rain_present(self):
+    def test_wind_missing_but_rain_present(self) -> None:
         # Rain is 0.60 -> Severe
         lvl, drv = classify_checkpoint_risk(None, 0.60, None, load_lb=42000.0)
         assert lvl == RiskLevel.SEVERE
         assert drv == "rain"
 
-    def test_rain_missing_but_snow_present(self):
+    def test_rain_missing_but_snow_present(self) -> None:
         # Snow is 1.5 -> High
         lvl, drv = classify_checkpoint_risk(10.0, None, 1.50, load_lb=42000.0)
         assert lvl == RiskLevel.HIGH
         assert drv == "snow"
+
+    def test_heatmap_missing_weather_returns_unknown_risk(self) -> None:
+        from routing.services.heatmap import build_heatmap_geojson
+        grid_points = [(41.8781, -87.6298)]
+        # Weather data unavailable (empty dict)
+        geojson = build_heatmap_geojson(grid_points, [{}], load_lb=42000.0)
+        feat = geojson["features"][0]
+        assert feat["properties"]["risk_by_hour"] == [int(RiskLevel.UNKNOWN)] * 49
+        assert feat["properties"]["current_risk"] == int(RiskLevel.UNKNOWN)
 
 
 # =====================================================================
@@ -230,7 +239,7 @@ class TestRecommendationEdgeCases:
             checkpoints=[],
         )
 
-    def test_exact_tie_tolerance_boundary_0_05(self):
+    def test_exact_tie_tolerance_boundary_0_05(self) -> None:
         # Route 1: avg_risk = 0.40, duration = 300 min
         # Route 2: avg_risk = 0.45, duration = 240 min (difference is exactly 0.05)
         # Because diff <= 0.05, they are tied on avg_risk -> Route 2 wins by 60 min faster duration!
@@ -241,7 +250,7 @@ class TestRecommendationEdgeCases:
         assert winner == "r2"
         assert "duration" in explanation.lower() or "faster" in explanation.lower()
 
-    def test_beyond_tie_tolerance_0_051_lower_risk_wins(self):
+    def test_beyond_tie_tolerance_0_051_lower_risk_wins(self) -> None:
         # Route 1: avg_risk = 0.40, duration = 300 min
         # Route 2: avg_risk = 0.451, duration = 240 min (difference is 0.051 > 0.05)
         # Difference exceeds tolerance -> Route 1 wins on lower avg_risk despite being slower!
@@ -251,7 +260,7 @@ class TestRecommendationEdgeCases:
         winner, _ = rank_and_recommend_routes([r1, r2])
         assert winner == "r1"
 
-    def test_single_drivable_route_among_two_no_travel_routes(self):
+    def test_single_drivable_route_among_two_no_travel_routes(self) -> None:
         # Route A has No Travel
         # Route B has No Travel
         # Route C is safe (Severe miles = 0, but duration is much longer)
@@ -263,7 +272,7 @@ class TestRecommendationEdgeCases:
         assert winner == "rC"
         assert "not drivable" in explanation.lower() or "no travel" in explanation.lower()
 
-    def test_all_three_routes_no_travel(self):
+    def test_all_three_routes_no_travel(self) -> None:
         rA = self._create_test_route("rA", duration_min=200, distance_mi=180, no_travel_miles=10.0)
         rB = self._create_test_route("rB", duration_min=220, distance_mi=190, no_travel_miles=8.0)
         rC = self._create_test_route("rC", duration_min=250, distance_mi=200, no_travel_miles=20.0)
@@ -286,10 +295,10 @@ class TestApiPayloadValidationEdgeCases:
     """
 
     @pytest.fixture
-    def client(self):
+    def client(self) -> APIClient:
         return APIClient()
 
-    def test_zero_load_rejected(self, client):
+    def test_zero_load_rejected(self, client: APIClient) -> None:
         payload = {
             "origin": "Chicago, IL",
             "destination": "Indianapolis, IN",
@@ -300,7 +309,7 @@ class TestApiPayloadValidationEdgeCases:
         assert response.status_code == 400
         assert "load_lb" in response.json().get("errors", {})
 
-    def test_negative_load_rejected(self, client):
+    def test_negative_load_rejected(self, client: APIClient) -> None:
         payload = {
             "origin": "Chicago, IL",
             "destination": "Indianapolis, IN",
@@ -311,7 +320,7 @@ class TestApiPayloadValidationEdgeCases:
         assert response.status_code == 400
         assert "load_lb" in response.json().get("errors", {})
 
-    def test_invalid_interval_miles_rejected(self, client):
+    def test_invalid_interval_miles_rejected(self, client: APIClient) -> None:
         payload = {
             "origin": "Chicago, IL",
             "destination": "Indianapolis, IN",
@@ -323,7 +332,7 @@ class TestApiPayloadValidationEdgeCases:
         assert response.status_code == 400
         assert "interval_miles" in response.json().get("errors", {})
 
-    def test_blank_origin_rejected(self, client):
+    def test_blank_origin_rejected(self, client: APIClient) -> None:
         payload = {
             "origin": "   ",
             "destination": "Indianapolis, IN",
