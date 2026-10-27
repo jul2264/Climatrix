@@ -164,6 +164,7 @@ else:
 
 # Truck Routing Settings (from AGENTS.md)
 ROUTING_API_KEY = os.environ.get("ROUTING_API_KEY", "")
+MAPBOX_TOKEN = os.environ.get("MAPBOX_TOKEN", os.environ.get("VITE_MAPBOX_TOKEN", ""))
 GEOCODING_API_KEY = os.environ.get("GEOCODING_API_KEY", "")
 TRUCK_SPEED_FACTOR = float(os.environ.get("TRUCK_SPEED_FACTOR", "1.0"))
 
