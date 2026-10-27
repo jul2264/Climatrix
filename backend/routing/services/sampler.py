@@ -14,7 +14,7 @@ from routing.services.constants import (
     INTERVAL_TIER_MEDIUM,
     INTERVAL_TIER_SHORT,
 )
-from routing.services.geometry import interpolate_point_at_mile
+from routing.services.geometry import cumulative_distances, interpolate_point_at_mile
 
 
 def determine_sampling_interval(
@@ -92,12 +92,16 @@ def sample_checkpoints(
     interval = determine_sampling_interval(reported_total_miles, interval_override)
     target_miles = generate_checkpoint_targets(reported_total_miles, interval)
 
+    # Precalculate cumulative distances ONCE per route for O(M log N) performance
+    cum_dist = cumulative_distances(coords)
+
     checkpoints: list[dict[str, Any]] = []
     for m in target_miles:
         lat, lon = interpolate_point_at_mile(
             coords,
             target_mile=m,
             reported_total_distance_miles=reported_total_miles,
+            cum_dist=cum_dist,
         )
         checkpoints.append(
             {

@@ -4,6 +4,7 @@ Handles polyline decoding, Haversine distance, cumulative distances,
 and geographical interpolation along route polylines.
 """
 
+import bisect
 import math
 from collections.abc import Sequence
 
@@ -97,18 +98,21 @@ def interpolate_point_at_mile(
     coords: Sequence[tuple[float, float]],
     target_mile: float,
     reported_total_distance_miles: float | None = None,
+    cum_dist: Sequence[float] | None = None,
 ) -> tuple[float, float]:
     """
     Interpolate (lat, lon) at a target mile along the sequence of coordinates.
     If reported_total_distance_miles is provided, the polyline's cumulative geometry distance
     is scaled to match the reported total distance.
+    If cum_dist is precomputed, it is reused to avoid O(N) recomputation.
     """
     if not coords:
         raise ValueError("Cannot interpolate along empty coordinate list")
     if len(coords) == 1:
         return coords[0]
 
-    cum_dist = cumulative_distances(coords)
+    if cum_dist is None:
+        cum_dist = cumulative_distances(coords)
     geom_total = cum_dist[-1]
 
     # Handle edge case where all points are identical or route has 0 distance
@@ -128,18 +132,17 @@ def interpolate_point_at_mile(
     if effective_mile >= geom_total:
         return coords[-1]
 
-    # Find the segment containing effective_mile
-    for i in range(1, len(cum_dist)):
-        if cum_dist[i] >= effective_mile:
-            segment_length = cum_dist[i] - cum_dist[i - 1]
-            if segment_length <= 1e-9:
-                return coords[i]
-            fraction = (effective_mile - cum_dist[i - 1]) / segment_length
-            lat = coords[i - 1][0] + fraction * (coords[i][0] - coords[i - 1][0])
-            lon = coords[i - 1][1] + fraction * (coords[i][1] - coords[i - 1][1])
-            return lat, lon
+    # Fast O(log N) binary search for the segment index
+    idx = bisect.bisect_left(cum_dist, effective_mile)
+    i = max(1, min(len(cum_dist) - 1, idx))
 
-    return coords[-1]
+    segment_length = cum_dist[i] - cum_dist[i - 1]
+    if segment_length <= 1e-9:
+        return coords[i]
+    fraction = (effective_mile - cum_dist[i - 1]) / segment_length
+    lat = coords[i - 1][0] + fraction * (coords[i][0] - coords[i - 1][0])
+    lon = coords[i - 1][1] + fraction * (coords[i][1] - coords[i - 1][1])
+    return lat, lon
 
 
 def calculate_bearing_degrees(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

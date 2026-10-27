@@ -30,10 +30,34 @@ class HealthCheckView(APIView):
     """
     Lightweight keep-alive health check for Render container pinging and uptime monitors.
     Returns instant 200 OK without database or external network overhead.
+    Optionally diagnoses upstream weather connectivity if ?check_weather=true.
     """
 
     def get(self, request: Request) -> Response:
-        return Response({"status": "healthy", "service": "climatrix-backend"})
+        payload: dict[str, Any] = {"status": "healthy", "service": "climatrix-backend"}
+        if request.query_params.get("check_weather") in ("true", "1"):
+            import time
+
+            from routing.clients.weather import OPEN_METEO_FORECAST_URL, _session
+            t0 = time.time()
+            try:
+                r = _session.get(
+                    OPEN_METEO_FORECAST_URL,
+                    params={"latitude": 41.8781, "longitude": -87.6298, "hourly": "wind_speed_10m", "forecast_days": 1},
+                    timeout=5.0,
+                )
+                payload["open_meteo"] = {
+                    "status_code": r.status_code,
+                    "latency_ms": round((time.time() - t0) * 1000, 1),
+                    "ok": r.status_code == 200,
+                }
+            except Exception as exc:
+                payload["open_meteo"] = {
+                    "error": str(exc),
+                    "latency_ms": round((time.time() - t0) * 1000, 1),
+                    "ok": False,
+                }
+        return Response(payload)
 
 
 class AnalyzeTripView(APIView):

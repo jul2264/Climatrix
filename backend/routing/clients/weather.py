@@ -4,7 +4,8 @@ Batches requests, requests wind_speed_unit=mph and precipitation_unit=inch,
 caches forecasts by rounded (0.1 degree) coordinates, and matches checkpoint ETAs to nearest forecast hours.
 """
 
-import concurrent.futures
+import logging
+import time
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime
@@ -15,12 +16,14 @@ from django.core.cache import cache
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+logger = logging.getLogger(__name__)
+
 OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE_TIMEOUT = 3600  # 1 hour
-DEFAULT_TIMEOUT_SECONDS = 8.0
+DEFAULT_TIMEOUT_SECONDS = 10.0
 MAX_RETRIES = 2
-MAX_WORKERS = 8
-CHUNK_SIZE = 100
+MAX_WORKERS = 1
+CHUNK_SIZE = 50
 
 # Reusable HTTP session with Keep-Alive connection pooling across worker threads
 _session = requests.Session()
@@ -88,7 +91,7 @@ def fetch_hourly_weather_batch(
         }
 
         chunk_results: list[tuple[tuple[float, float], dict[str, Any]]] = []
-        for _ in range(MAX_RETRIES + 1):
+        for attempt in range(MAX_RETRIES + 1):
             try:
                 resp = _session.get(
                     OPEN_METEO_FORECAST_URL,
@@ -121,35 +124,47 @@ def fetch_hourly_weather_batch(
                         for cell in chunk_cells:
                             chunk_results.append((cell, res))
                     return chunk_results
-            except Exception:
-                pass
+                elif resp.status_code == 429:
+                    logger.warning(
+                        "Open-Meteo concurrency/rate limit (429) hit on attempt %d. Backing off.",
+                        attempt + 1,
+                    )
+                    time.sleep(1.2 * (attempt + 1))
+                else:
+                    logger.warning(
+                        "Open-Meteo returned HTTP %d for chunk of %d cells: %s",
+                        resp.status_code,
+                        len(chunk_cells),
+                        resp.text[:150],
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Open-Meteo request error on attempt %d: %s",
+                    attempt + 1,
+                    exc,
+                )
+                time.sleep(0.5 * (attempt + 1))
         return chunk_results
 
-    # 4. Chunk missing unique cells and execute concurrently
+    # 4. Chunk missing unique cells and execute sequentially to respect 1-conn limit
     chunks = [
         missing_cells[i : i + CHUNK_SIZE]
         for i in range(0, len(missing_cells), CHUNK_SIZE)
     ]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_to_chunk = {
-            executor.submit(_fetch_chunk, chunk): chunk for chunk in chunks
-        }
-        for future in concurrent.futures.as_completed(future_to_chunk):
-            try:
-                chunk_data = future.result()
-                for cell_key, weather_res in chunk_data:
-                    # Cache under rounded key
-                    cache.set(
-                        f"weather_{cell_key[0]}_{cell_key[1]}",
-                        weather_res,
-                        timeout=WEATHER_CACHE_TIMEOUT,
-                    )
-                    # Assign to all original checkpoint indices sharing this spatial cell
-                    for idx in cell_to_indices.get(cell_key, []):
-                        results[idx] = weather_res
-            except Exception:
-                pass
+    for chunk_idx, chunk in enumerate(chunks):
+        if chunk_idx > 0:
+            # Brief inter-chunk pause to prevent burst queuing on cloud IPs
+            time.sleep(0.1)
+        chunk_data = _fetch_chunk(chunk)
+        for cell_key, weather_res in chunk_data:
+            cache.set(
+                f"weather_{cell_key[0]}_{cell_key[1]}",
+                weather_res,
+                timeout=WEATHER_CACHE_TIMEOUT,
+            )
+            for idx in cell_to_indices.get(cell_key, []):
+                results[idx] = weather_res
 
     return results
 
