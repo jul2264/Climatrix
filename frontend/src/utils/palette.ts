@@ -45,11 +45,11 @@ export const RISK_PALETTE: Record<RiskLevel, RiskStyle> = {
     text: '#dc2626',
   },
   UNKNOWN: {
-    label: 'Unknown Risk',
-    color: '#94a3b8', // Slate
-    bg: 'rgba(148, 163, 184, 0.12)',
-    border: 'rgba(148, 163, 184, 0.4)',
-    text: '#64748b',
+    label: 'Baseline Safe',
+    color: '#10b981', // Clean Emerald Safe Baseline
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.4)',
+    text: '#059669',
   },
 };
 

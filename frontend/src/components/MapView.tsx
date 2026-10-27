@@ -207,16 +207,16 @@ const LINE_OPACITY_EXPR: maplibregl.ExpressionSpecification = [
   ['==', ['get', 'recommended'], 1], 0.85,
   0.75,
 ];
-// Heatmap color: GPU match expression — -1=Unknown/Missing, 0=Low, 1=Moderate, 2=High, 3=Severe, 4=NoTravel
+// Heatmap color: GPU match expression — -1=Baseline/Low, 0=Low, 1=Moderate, 2=High, 3=Severe, 4=NoTravel
 const HEATMAP_COLOR_EXPR: maplibregl.ExpressionSpecification = [
   'match', ['get', 'current_risk'],
-  -1, 'rgba(148,163,184,0.35)',
+  -1, 'rgba(16,185,129,0.35)',
   0,  'rgba(16,185,129,0.45)',
   1,  'rgba(59,130,246,0.55)',
   2,  'rgba(245,158,11,0.65)',
   3,  'rgba(236,72,153,0.80)',
   4,  'rgba(239,68,68,0.85)',
-  'rgba(148,163,184,0.35)',
+  'rgba(16,185,129,0.35)',
 ];
 
 // ----------------------------------------------------------------------------

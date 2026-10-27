@@ -38,11 +38,11 @@ class HealthCheckView(APIView):
         if request.query_params.get("check_weather") in ("true", "1"):
             import time
 
-            from routing.clients.weather import OPEN_METEO_FORECAST_URL, _session
+            from routing.clients.weather import _session, get_open_meteo_url
             t0 = time.time()
             try:
                 r = _session.get(
-                    OPEN_METEO_FORECAST_URL,
+                    get_open_meteo_url(),
                     params={"latitude": 41.8781, "longitude": -87.6298, "hourly": "wind_speed_10m", "forecast_days": 1},
                     timeout=5.0,
                 )

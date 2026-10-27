@@ -167,6 +167,10 @@ ROUTING_API_KEY = os.environ.get("ROUTING_API_KEY", "")
 MAPBOX_TOKEN = os.environ.get("MAPBOX_TOKEN", os.environ.get("VITE_MAPBOX_TOKEN", ""))
 GEOCODING_API_KEY = os.environ.get("GEOCODING_API_KEY", "")
 TRUCK_SPEED_FACTOR = float(os.environ.get("TRUCK_SPEED_FACTOR", "1.0"))
+OPEN_METEO_BASE_URL = os.environ.get(
+    "OPEN_METEO_BASE_URL",
+    os.environ.get("WEATHER_API_PROXY_URL", "https://api.open-meteo.com/v1/forecast"),
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
