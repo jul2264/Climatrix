@@ -26,8 +26,8 @@ function getInitialTime(): string {
 }
 
 export const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading }) => {
-  const [origin, setOrigin] = useState('Chicago, IL');
-  const [destination, setDestination] = useState('Indianapolis, IN');
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
   const [departureDate, setDepartureDate] = useState(getInitialDate);
   const [departureTime, setDepartureTime] = useState(getInitialTime);
   const [loadLb, setLoadLb] = useState<number>(42000);

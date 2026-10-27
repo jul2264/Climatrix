@@ -255,8 +255,8 @@ const MapViewInner: React.FC<MapViewProps> = ({
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: DEFAULT_STYLE,
-      center: [-86.8, 40.8],
-      zoom: 6.5,
+      center: [-96.0, 39.5],
+      zoom: 4.2,
       attributionControl: false,
       renderWorldCopies: false, // halves draw calls
       trackResize: false,       // managed by ResizeObserver below

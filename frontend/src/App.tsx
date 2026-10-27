@@ -89,22 +89,7 @@ const TruckRouteSafetyDashboard: React.FC = () => {
     [activeTripParams, handleTripSubmit]
   );
 
-  // Run initial demo route analysis on mount so the user immediately sees live data
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const d = new Date();
-      d.setHours(d.getHours() + 1);
-      d.setMinutes(0, 0, 0);
-      handleTripSubmit({
-        origin: 'Chicago, IL',
-        destination: 'Indianapolis, IN',
-        departure: d.toISOString(),
-        load_lb: 45000,
-        interval_miles: 25,
-      });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [handleTripSubmit]);
+
 
   const routes             = useMemo(() => analysisData?.routes ?? [], [analysisData]);
   const recommendedRouteId = analysisData?.recommended_route_id ?? null;

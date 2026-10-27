@@ -15,9 +15,27 @@ describe('TripForm Component', () => {
     expect(screen.getByRole('button', { name: /analyze route safety/i })).toBeInTheDocument();
   });
 
-  it('submits form with valid inputs', () => {
+  it('prevents submission when origin or destination is empty', () => {
     const handleSubmit = vi.fn();
     render(<TripForm onSubmit={handleSubmit} isLoading={false} />);
+
+    const submitBtn = screen.getByRole('button', { name: /analyze route safety/i });
+    const form = submitBtn.closest('form')!;
+    fireEvent.submit(form);
+
+    expect(handleSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/origin location is required/i)).toBeInTheDocument();
+  });
+
+  it('submits form when user enters origin and destination', () => {
+    const handleSubmit = vi.fn();
+    render(<TripForm onSubmit={handleSubmit} isLoading={false} />);
+
+    const originInput = screen.getByLabelText(/origin/i);
+    const destInput = screen.getByLabelText(/destination/i);
+
+    fireEvent.change(originInput, { target: { value: 'Chicago, IL' } });
+    fireEvent.change(destInput, { target: { value: 'Indianapolis, IN' } });
 
     const submitBtn = screen.getByRole('button', { name: /analyze route safety/i });
     const form = submitBtn.closest('form')!;
